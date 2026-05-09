@@ -1,0 +1,239 @@
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
+}
+
+.login-page{
+height:100vh;
+background-size:cover;
+background-position:center;
+position:relative;
+color:white;
+overflow:hidden;
+}
+
+/* NAVBAR */
+.navbar{
+position:absolute;
+top:0;
+width:100%;
+padding:22px 60px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+z-index:5;
+}
+
+.logo{
+font-size:32px;
+font-weight:900;
+letter-spacing:1px;
+color:white;
+}
+
+.logo span{
+color:#e50914;
+}
+
+.signin-btn{
+background:rgba(229,9,20,0.9);
+border:none;
+padding:8px 20px;
+color:white;
+font-weight:600;
+border-radius:4px;
+cursor:pointer;
+transition:.3s;
+}
+
+.signin-btn:hover{
+background:#b20710;
+}
+
+/* HERO */
+.hero{
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+text-align:center;
+padding:0 20px;
+}
+
+.overlay{
+position:absolute;
+height:100%;
+width:100%;
+background:linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,.6));
+top:0;
+}
+
+.hero-content{
+position:relative;
+z-index:2;
+max-width:850px;
+animation:fadeUp 1s ease;
+}
+
+.hero-content h1{
+font-size:58px;
+font-weight:900;
+line-height:1.15;
+letter-spacing:-1px;
+}
+
+.hero-content h3{
+margin-top:18px;
+font-weight:400;
+color:#dcdcdc;
+font-size:20px;
+}
+
+/* BUTTON */
+.getstarted{
+margin-top:35px;
+background:#e50914;
+border:none;
+padding:16px 42px;
+font-size:20px;
+font-weight:700;
+color:white;
+border-radius:4px;
+cursor:pointer;
+transition:.3s;
+box-shadow:0 10px 30px rgba(229,9,20,.3);
+}
+
+.getstarted:hover{
+background:#b20710;
+transform:translateY(-2px);
+box-shadow:0 14px 40px rgba(229,9,20,.5);
+}
+
+/* MODAL */
+.modal-backdrop{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.75);
+display:flex;
+justify-content:center;
+align-items:center;
+z-index:10;
+backdrop-filter:blur(6px);
+}
+
+.modal{
+width:380px;
+background:rgba(15,15,15,0.97);
+padding:38px;
+border-radius:12px;
+position:relative;
+animation:pop .35s ease;
+box-shadow:0 0 60px rgba(0,0,0,0.7);
+}
+
+.modal h2{
+margin-bottom:20px;
+font-weight:700;
+}
+
+.modal input{
+width:100%;
+padding:14px;
+margin:10px 0;
+background:#222;
+border:none;
+color:white;
+border-radius:5px;
+font-size:15px;
+}
+
+.login-btn{
+width:100%;
+padding:14px;
+background:#e50914;
+border:none;
+color:white;
+font-weight:bold;
+margin-top:15px;
+cursor:pointer;
+border-radius:5px;
+font-size:16px;
+}
+
+/* GOOGLE */
+.google-btn{
+margin-top:15px;
+background:white;
+color:black;
+padding:12px;
+display:flex;
+align-items:center;
+justify-content:center;
+gap:10px;
+cursor:pointer;
+font-weight:600;
+border-radius:5px;
+}
+
+.google-btn img{
+width:30px;
+}
+
+.switch{
+margin-top:15px;
+font-size:14px;
+text-align:center;
+color:#aaa;
+}
+
+.switch span{
+color:#e50914;
+cursor:pointer;
+font-weight:bold;
+}
+
+.close{
+position:absolute;
+right:15px;
+top:10px;
+cursor:pointer;
+font-size:20px;
+}
+
+/* ANIMATION */
+@keyframes pop{
+from{transform:scale(.7);opacity:0;}
+to{transform:scale(1);opacity:1;}
+}
+
+@keyframes fadeUp{
+from{opacity:0;transform:translateY(30px);}
+to{opacity:1;transform:translateY(0);}
+}
+
+/* MOBILE */
+@media(max-width:768px){
+
+.hero-content h1{
+font-size:34px;
+}
+
+.hero-content h3{
+font-size:16px;
+}
+
+.getstarted{
+font-size:16px;
+padding:14px 28px;
+}
+
+.navbar{
+padding:18px 20px;
+}
+}
