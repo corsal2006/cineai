@@ -72,6 +72,7 @@ export default function Home() {
   const [roomOpen, setRoomOpen] = useState(false);
   const [roomSeed, setRoomSeed] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [apiNotice, setApiNotice] = useState("");
   const [watchlist, setWatchlist] = useState(() => getWatchlist());
   const [ratings, setRatings] = useState(() => getRatings());
   const [reviews, setReviews] = useState(() => getReviews());
@@ -104,26 +105,41 @@ export default function Home() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      const safe = async (loader, label) => {
+        try {
+          return await loader();
+        } catch (error) {
+          console.error(`TMDB ${label} failed`, error);
+          return [];
+        }
+      };
+
       try {
         const [trending, popular, topRated, predicted, action, horror, scifi, comedy, bollywood, anime, firstMood] =
           await Promise.all([
-            getTrending(),
-            getPopular(),
-            getTopRated(),
-            getTrendingPrediction(),
-            getAction(),
-            getHorror(),
-            getScifi(),
-            getComedy(),
-            getBollywood(),
-            getAnime(),
-            getMoodMovies("happy"),
+            safe(getTrending, "trending"),
+            safe(getPopular, "popular"),
+            safe(getTopRated, "top rated"),
+            safe(getTrendingPrediction, "prediction"),
+            safe(getAction, "action"),
+            safe(getHorror, "horror"),
+            safe(getScifi, "sci-fi"),
+            safe(getComedy, "comedy"),
+            safe(getBollywood, "bollywood"),
+            safe(getAnime, "anime"),
+            safe(() => getMoodMovies("happy"), "mood"),
           ]);
 
         setRows({ trending, popular, topRated, predicted, action, horror, scifi, comedy, bollywood, anime });
         setMoodMovies(firstMood);
+        setApiNotice(
+          [trending, popular, topRated, predicted, action, horror, scifi, comedy, bollywood, anime, firstMood].flat().length
+            ? ""
+            : "Movie data is not available yet. Check the Vercel VITE_TMDB_KEY value and refresh."
+        );
       } catch (error) {
         console.error(error);
+        setApiNotice("Movie data is not available yet. Check the Vercel VITE_TMDB_KEY value and refresh.");
       } finally {
         setLoading(false);
       }
@@ -337,6 +353,18 @@ export default function Home() {
       )}
 
       <div className="content-shell">
+        {apiNotice && (
+          <section className="api-notice">
+            <div>
+              <strong>TMDB connection needs attention</strong>
+              <p>{apiNotice}</p>
+            </div>
+            <button type="button" onClick={() => window.location.reload()}>
+              Retry
+            </button>
+          </section>
+        )}
+
         {searchResults.length > 0 && (
           <MovieRow
             title="Smart search results"

@@ -9,6 +9,7 @@ export const PROFILE = "https://image.tmdb.org/t/p/w185";
 
 const client = axios.create({
   baseURL: TMDB,
+  timeout: 8000,
   params: {
     api_key: API,
     language: "en-US",
