@@ -54,7 +54,20 @@ const emptyRows = {
   anime: [],
 };
 
+const INITIAL_LOAD_TIMEOUT = 6500;
 const roomCode = () => String(Math.floor(100000 + Math.random() * 900000));
+
+const withTimeout = (promise, label, timeout = INITIAL_LOAD_TIMEOUT) => {
+  let timerId;
+  const timeoutPromise = new Promise((resolve) => {
+    timerId = window.setTimeout(() => {
+      console.warn(`TMDB ${label} timed out`);
+      resolve([]);
+    }, timeout);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => window.clearTimeout(timerId));
+};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -107,7 +120,7 @@ export default function Home() {
       setLoading(true);
       const safe = async (loader, label) => {
         try {
-          return await loader();
+          return await withTimeout(loader(), label);
         } catch (error) {
           console.error(`TMDB ${label} failed`, error);
           return [];

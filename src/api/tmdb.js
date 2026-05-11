@@ -2,6 +2,7 @@ import axios from "axios";
 
 const API = import.meta.env.VITE_TMDB_KEY;
 const TMDB = "https://api.themoviedb.org/3";
+const USE_PROXY = !import.meta.env.DEV;
 
 export const IMG = "https://image.tmdb.org/t/p/original";
 export const POSTER = "https://image.tmdb.org/t/p/w500";
@@ -16,10 +17,32 @@ const client = axios.create({
   },
 });
 
+const proxyClient = axios.create({
+  baseURL: "/api/tmdb",
+  timeout: 10000,
+  params: {
+    language: "en-US",
+  },
+});
+
 const movieOnly = (items = []) =>
   items.filter((item) => item && item.id && (item.title || item.name));
 
 const request = async (path, params = {}) => {
+  if (USE_PROXY) {
+    try {
+      const response = await proxyClient.get("", {
+        params: {
+          path,
+          ...params,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.warn("TMDB proxy failed; falling back to direct request", error);
+    }
+  }
+
   if (!API) {
     console.warn("Missing VITE_TMDB_KEY");
     return [];
