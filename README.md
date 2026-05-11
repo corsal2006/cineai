@@ -10,9 +10,13 @@ CineAI is a Netflix-style movie recommendation app built for personalized discov
 
 ## Screenshots
 
-| Desktop landing | Mobile landing |
+| Desktop landing | Personalized home |
 | --- | --- |
-| ![Desktop landing](screenshots/landing.png) | ![Mobile landing](screenshots/mobile.png) |
+| ![Desktop landing](screenshots/landing.png) | ![Personalized home](screenshots/home.png) |
+
+| Mobile landing |
+| --- |
+| ![Mobile landing](screenshots/mobile.png) |
 
 ## Highlights
 
