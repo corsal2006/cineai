@@ -1,96 +1,182 @@
 import axios from "axios";
 
 const API = import.meta.env.VITE_TMDB_KEY;
+const TMDB = "https://api.themoviedb.org/3";
+
 export const IMG = "https://image.tmdb.org/t/p/original";
+export const POSTER = "https://image.tmdb.org/t/p/w500";
+export const PROFILE = "https://image.tmdb.org/t/p/w185";
 
+const client = axios.create({
+  baseURL: TMDB,
+  params: {
+    api_key: API,
+    language: "en-US",
+  },
+});
 
-/* ========= GENRES ========= */
+const movieOnly = (items = []) =>
+  items.filter((item) => item && item.id && (item.title || item.name));
+
+const request = async (path, params = {}) => {
+  if (!API) {
+    console.warn("Missing VITE_TMDB_KEY");
+    return [];
+  }
+
+  const response = await client.get(path, { params });
+  return response.data;
+};
+
+export const imageUrl = (path, size = "original") => {
+  if (!path) return "";
+  return `https://image.tmdb.org/t/p/${size}${path}`;
+};
 
 export const getTrending = async () => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/trending/movie/week?api_key=${API}`
-  );
-  return r.data.results;
+  const data = await request("/trending/movie/week");
+  return movieOnly(data.results);
 };
 
-export const getAction = async () => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${API}&with_genres=28`
-  );
-  return r.data.results;
+export const getPopular = async () => {
+  const data = await request("/movie/popular", { page: 1, region: "US" });
+  return movieOnly(data.results);
 };
 
-export const getHorror = async () => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${API}&with_genres=27`
-  );
-  return r.data.results;
+export const getTopRated = async () => {
+  const data = await request("/movie/top_rated", { page: 1, region: "US" });
+  return movieOnly(data.results);
 };
 
-export const getScifi = async () => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${API}&with_genres=878`
-  );
-  return r.data.results;
-};
-
-export const getComedy = async () => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${API}&with_genres=35`
-  );
-  return r.data.results;
-};
+export const getAction = async () => getDiscoverByGenre(28);
+export const getHorror = async () => getDiscoverByGenre(27);
+export const getScifi = async () => getDiscoverByGenre(878);
+export const getComedy = async () => getDiscoverByGenre(35);
 
 export const getBollywood = async () => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${API}&with_original_language=hi`
-  );
-  return r.data.results;
+  const data = await request("/discover/movie", {
+    sort_by: "popularity.desc",
+    with_original_language: "hi",
+    "vote_count.gte": 80,
+  });
+  return movieOnly(data.results);
 };
 
 export const getAnime = async () => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/discover/tv?api_key=${API}&with_genres=16`
-  );
-  return r.data.results;
+  const data = await request("/discover/movie", {
+    sort_by: "popularity.desc",
+    with_genres: 16,
+    with_keywords: "210024|287501",
+  });
+  return movieOnly(data.results);
 };
 
-/* ========= SEARCH ========= */
-export const searchMovies = async (q) => {
-  if (!q) return [];
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/search/movie?api_key=${API}&query=${q}`
-  );
-  return r.data.results;
+export const getDiscoverByGenre = async (genreId, extra = {}) => {
+  const data = await request("/discover/movie", {
+    sort_by: "popularity.desc",
+    include_adult: false,
+    "vote_count.gte": 100,
+    with_genres: genreId,
+    ...extra,
+  });
+  return movieOnly(data.results);
 };
 
-/* ========= TRAILER ========= */
+export const MOODS = [
+  {
+    id: "happy",
+    label: "Happy",
+    description: "Bright, funny, easy to watch",
+    params: { with_genres: "35,10751", sort_by: "popularity.desc" },
+  },
+  {
+    id: "sad",
+    label: "Sad",
+    description: "Emotional dramas and cathartic stories",
+    params: { with_genres: "18,10749", sort_by: "vote_average.desc", "vote_count.gte": 500 },
+  },
+  {
+    id: "motivational",
+    label: "Motivational",
+    description: "Comebacks, ambition, and high-stakes wins",
+    params: { with_genres: "18,36", sort_by: "popularity.desc", with_keywords: "9715|18035|210024" },
+  },
+  {
+    id: "sci-fi",
+    label: "Sci-Fi Mood",
+    description: "Big ideas, space, and mind-bending worlds",
+    params: { with_genres: "878", sort_by: "popularity.desc" },
+  },
+  {
+    id: "late-night",
+    label: "Late-night Thriller",
+    description: "Tense, dark, and impossible to pause",
+    params: { with_genres: "53,9648", sort_by: "popularity.desc", "vote_count.gte": 150 },
+  },
+];
+
+export const getMoodMovies = async (moodId) => {
+  const mood = MOODS.find((item) => item.id === moodId) || MOODS[0];
+  const data = await request("/discover/movie", {
+    include_adult: false,
+    page: 1,
+    ...mood.params,
+  });
+  return movieOnly(data.results);
+};
+
+export const searchMovies = async (query) => {
+  if (!query?.trim()) return [];
+  const data = await request("/search/movie", {
+    query,
+    include_adult: false,
+    page: 1,
+  });
+  return movieOnly(data.results);
+};
+
+export const getMovieDetails = async (id) => {
+  if (!id) return null;
+  return request(`/movie/${id}`, {
+    append_to_response: "videos,credits,similar,recommendations",
+  });
+};
+
 export const getTrailer = async (id) => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/movie/${id}/videos?api_key=${API}`
-  );
-  return r.data.results;
+  const data = await request(`/movie/${id}/videos`);
+  return data.results || [];
 };
 
-/* ========= CAST ========= */
+export const getMovieVideos = getTrailer;
+
 export const getCast = async (id) => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/movie/${id}/credits?api_key=${API}`
-  );
-  return r.data.cast;
+  const data = await request(`/movie/${id}/credits`);
+  return data.cast || [];
 };
 
-/* ========= SIMILAR ========= */
 export const getSimilar = async (id) => {
-  const r = await axios.get(
-    `https://api.themoviedb.org/3/movie/${id}/similar?api_key=${API}`
-  );
-  return r.data.results;
+  const data = await request(`/movie/${id}/similar`);
+  return movieOnly(data.results);
 };
-export const getMovieVideos = async (id)=>{
-  const r = await fetch(
-   `https://api.themoviedb.org/3/movie/${id}/videos?api_key=${API}`
-  );
-  const d = await r.json();
-  return d.results;
+
+export const getRecommendations = async (id) => {
+  const data = await request(`/movie/${id}/recommendations`);
+  return movieOnly(data.results);
 };
+
+export const getTrendingPrediction = async () => {
+  const [popular, trending] = await Promise.all([getPopular(), getTrending()]);
+  return [...popular, ...trending]
+    .filter((movie, index, list) => list.findIndex((item) => item.id === movie.id) === index)
+    .sort((a, b) => {
+      const aMomentum = (a.popularity || 0) + (a.vote_count || 0) / 100 + (a.vote_average || 0) * 8;
+      const bMomentum = (b.popularity || 0) + (b.vote_count || 0) / 100 + (b.vote_average || 0) * 8;
+      return bMomentum - aMomentum;
+    })
+    .slice(0, 20);
+};
+
+export const pickTrailer = (videos = []) =>
+  videos.find((video) => video.site === "YouTube" && video.type === "Trailer") ||
+  videos.find((video) => video.site === "YouTube" && video.type === "Teaser") ||
+  videos.find((video) => video.site === "YouTube");

@@ -1,72 +1,121 @@
-.modalOverlay{
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:rgba(0,0,0,0.7);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  z-index:999;
+.room-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(9px);
+  padding: 20px;
 }
 
-.modalBox{
-  background:#020617;
-  padding:40px;
-  border-radius:14px;
-  width:350px;
-  text-align:center;
-  position:relative;
-  box-shadow:0 0 40px rgba(255,0,80,0.3);
+.room-modal {
+  position: relative;
+  width: min(420px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: #0c0c0c;
+  color: #fff;
+  padding: 28px;
+  box-shadow: 0 28px 82px rgba(0, 0, 0, 0.68);
 }
 
-.modalBox h2{
-  margin-bottom:20px;
+.room-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
-.modalBox input{
-  width:100%;
-  padding:12px;
-  margin-bottom:15px;
-  border:none;
-  border-radius:8px;
-  background:#111827;
-  color:white;
+.room-modal-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e50914;
+  color: #fff;
+  font-size: 22px;
+  margin-bottom: 16px;
 }
 
-.createBtn{
-  width:100%;
-  padding:12px;
-  background:#00c896;
-  border:none;
-  border-radius:8px;
-  color:white;
-  margin-bottom:15px;
-  cursor:pointer;
+.room-modal h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
 }
 
-.joinRow{
-  display:flex;
-  gap:10px;
+.room-modal p {
+  margin: 0 0 18px;
+  color: #bcbcbc;
+  line-height: 1.45;
 }
 
-.joinRow input{
-  flex:1;
+.room-movie-preview {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.joinRow button{
-  padding:12px;
-  background:#ff004f;
-  border:none;
-  border-radius:8px;
-  color:white;
-  cursor:pointer;
+.room-movie-preview span {
+  color: #aaa;
+  font-size: 12px;
 }
 
-.close{
-  position:absolute;
-  top:10px;
-  right:15px;
-  cursor:pointer;
+.room-modal label {
+  display: grid;
+  gap: 8px;
+  color: #dcdcdc;
+  font-weight: 800;
+}
+
+.room-modal input {
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  outline: 0;
+  background: #151515;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0 12px;
+}
+
+.create-room-button,
+.join-room-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border: 0;
+  color: #fff;
+  border-radius: 6px;
+  font-weight: 900;
+}
+
+.create-room-button {
+  width: 100%;
+  margin-top: 16px;
+  background: #e50914;
+}
+
+.join-room-row {
+  display: grid;
+  grid-template-columns: 1fr 52px;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.join-room-row button {
+  background: #29d3ff;
+  color: #061015;
 }

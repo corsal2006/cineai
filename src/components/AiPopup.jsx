@@ -1,78 +1,112 @@
-import React,{useState} from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { FaBolt, FaMoon, FaPaperPlane, FaRobot, FaSmile, FaTimes } from "react-icons/fa";
 import { askGroq } from "../api/groq";
 
-export default function AiPopup(){
+const suggestions = [
+  "Late-night thriller with a smart plot",
+  "Feel-good movies for a weekend",
+  "Movies like Interstellar",
+];
 
- const [open,setOpen]=useState(false);
- const [msg,setMsg]=useState("");
- const [chat,setChat]=useState([
- {
-  ai:`👋 Hey Pal ! I'm CineAI
+const quickPicks = [
+  { label: "Surprise me", icon: FaBolt, prompt: "Surprise me with 5 excellent movies I probably missed." },
+  { label: "Comfort", icon: FaSmile, prompt: "Give me comforting feel-good movies for tonight." },
+  { label: "After dark", icon: FaMoon, prompt: "Recommend intense late-night thrillers with strong pacing." },
+];
 
-Your personal movie companion 🎬
+export default function AiPopup() {
+  const messagesRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [chat, setChat] = useState([
+    {
+      ai: "Tell me your mood, a movie you already like, or who you are watching with. I will suggest a tighter watchlist.",
+    },
+  ]);
+  const [loading, setLoading] = useState(false);
 
-Tell me what you're in the mood for:
+  useEffect(() => {
+    if (!open || !messagesRef.current) return;
+    messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+  }, [chat, loading, open]);
 
-🍿 Weekend binge  
-🔥 Action movies  
-😂 Comedy  
-👻 Horror  
-🧠 Mind-bending  
+  const send = async (override) => {
+    const text = (override || message).trim();
+    if (!text || loading) return;
 
-I'll find something perfect for you 😎`
- }
-]);
+    const next = [...chat, { me: text }];
+    setChat(next);
+    setMessage("");
+    setLoading(true);
 
- const [loading,setLoading]=useState(false);
+    const response = await askGroq(text);
+    setChat([...next, { ai: response }]);
+    setLoading(false);
+  };
 
- const send=async()=>{
-  if(!msg) return;
+  return (
+    <>
+      <button type="button" className="ai-float" onClick={() => setOpen((value) => !value)} aria-label="Open CineAI assistant">
+        <FaRobot />
+      </button>
 
-  const newChat=[...chat,{me:msg}];
-  setChat(newChat);
-  setMsg("");
-  setLoading(true);
+      {open && (
+        <aside className="ai-chat" aria-label="CineAI assistant">
+          <header className="ai-header">
+            <div>
+              <strong>CineAI Assistant</strong>
+              <span>Smart picks from mood and taste</span>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close assistant">
+              <FaTimes />
+            </button>
+          </header>
 
-  const res = await askGroq(msg);
+          <div className="ai-messages" ref={messagesRef} aria-live="polite">
+            {chat.map((item, index) => (
+              <div key={`${index}-${item.me || item.ai?.slice(0, 10)}`}>
+                {item.me && <div className="message me">{item.me}</div>}
+                {item.ai && <div className="message ai">{item.ai}</div>}
+              </div>
+            ))}
+            {loading && <div className="message ai">Thinking through your taste profile...</div>}
+          </div>
 
-  setChat([...newChat,{ai:res}]);
-  setLoading(false);
- };
+          <div className="quick-picks">
+            {quickPicks.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button type="button" key={item.label} onClick={() => send(item.prompt)}>
+                  <Icon />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
 
- return(
- <>
- {/* FLOAT BUTTON */}
- <div className="ai-float" onClick={()=>setOpen(!open)}>🤖</div>
+          <div className="suggestion-chips">
+            {suggestions.map((item) => (
+              <button type="button" key={item} onClick={() => send(item)}>
+                {item}
+              </button>
+            ))}
+          </div>
 
- {open && (
- <div className="ai-chat">
-
-   <div className="ai-header">
-     CineAI Assistant
-     <span onClick={()=>setOpen(false)}>✖</span>
-   </div>
-
-   <div className="ai-messages">
-    {chat.map((c,i)=>(
-      <div key={i}>
-        {c.me && <div className="me">{c.me}</div>}
-        {c.ai && <div className="ai">{c.ai}</div>}
-      </div>
-    ))}
-    {loading && <div className="ai">Thinking...</div>}
-   </div>
-
-   <div className="ai-input">
-    <input
-     placeholder="Ask movies like Interstellar..."
-     value={msg}
-     onChange={e=>setMsg(e.target.value)}
-    />
-    <button onClick={send}>Send</button>
-   </div>
-
- </div>
- )}
- </>
- )
+          <div className="ai-input">
+            <input
+              placeholder="Ask for movies like Dune..."
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") send();
+              }}
+            />
+            <button type="button" onClick={() => send()} aria-label="Send message">
+              <FaPaperPlane />
+            </button>
+          </div>
+        </aside>
+      )}
+    </>
+  );
 }

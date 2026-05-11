@@ -7,20 +7,16 @@ const groq = new Groq({
 
 export const askGroq = async (userMsg) => {
   try {
+    const cleaned = userMsg.toLowerCase().trim();
+    const greetings = ["hi", "hello", "hey", "yo", "hii"];
 
-    // 🎯 If user just greets
-    const greetings = ["hi","hello","hey","yo","hii"];
-    if (greetings.includes(userMsg.toLowerCase().trim())) {
-      return `👋 Hey there! I'm CineAI
-
-Tell me what you feel like watching:
-
-🎬 "Mind bending movies"
-😂 "Comedy like Hangover"
-👻 "Horror movies"
-🚀 "Sci-fi like Interstellar"
-
-I'll give you perfect recommendations 😎`;
+    if (greetings.includes(cleaned)) {
+      return [
+        "Hey, I am CineAI.",
+        "",
+        "Tell me your mood, a movie you like, or who you are watching with.",
+        "I can suggest thrillers, comfort movies, sci-fi, comedy, or group-watch picks.",
+      ].join("\n");
     }
 
     const completion = await groq.chat.completions.create({
@@ -29,24 +25,14 @@ I'll give you perfect recommendations 😎`;
         {
           role: "system",
           content: `
-You are CineAI — a stylish Netflix-like movie AI.
+You are CineAI, a stylish movie recommendation assistant for a Netflix-like app.
 
-RULES:
-- Friendly
-- Cool
-- Make response attractive
-- Use emojis
-- Give max 5 movies
-- Format properly
-
-FORMAT:
-
-🎬 Movie Name (Year)
-⭐ Rating
-🎭 Genre
-🔥 Why watch (1 line)
-
-Keep clean spacing.
+Rules:
+- Give a confident answer.
+- Recommend at most 5 movies.
+- Include year, genre, rating signal, and one short reason.
+- Keep formatting clean and compact.
+- Avoid spoilers.
 `,
         },
         {
@@ -54,14 +40,13 @@ Keep clean spacing.
           content: userMsg,
         },
       ],
-      temperature: 0.9,
-      max_tokens: 800,
+      temperature: 0.85,
+      max_tokens: 700,
     });
 
     return completion.choices[0].message.content;
-
   } catch (err) {
-    console.log(err);
-    return "⚠️ AI not responding. Try again.";
+    console.error(err);
+    return "CineAI could not reach the AI model right now. Try a mood button or search a movie instead.";
   }
 };
