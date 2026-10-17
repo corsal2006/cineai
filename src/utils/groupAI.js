@@ -1,4 +1,4 @@
-import { askGroq } from "../api/groq";
+import { askGroq } from "../api/groq.js";
 
 export async function groupRecommend(users){
   if(!users || users.length===0) return "No users in room yet";

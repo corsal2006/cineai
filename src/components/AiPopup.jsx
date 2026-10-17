@@ -52,7 +52,7 @@ export default function AiPopup({ user }) {
         inputQuery: text,
         recommendedMovies: [],
         source: "ai_popup",
-        algorithmVersion: "1.0-groq-llama-3.3",
+        algorithmVersion: "1.0-groq-cineai",
       });
     }
   };
