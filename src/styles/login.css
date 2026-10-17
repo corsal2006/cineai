@@ -415,6 +415,14 @@ button {
   font-weight: 800;
 }
 
+.google-button .google-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
 .guest-inline {
   min-height: 42px;
 }

@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck, FaPlay, FaPlus, FaTimes, FaUsers } from "react-icons/fa";
 import { getMovieDetails, imageUrl, pickTrailer } from "../api/tmdb";
+import { auth } from "../firebase";
+import { recordMovieInteraction, recordRecommendationSession } from "../services/activityService";
 
 export default function MovieModal({
   movie,
@@ -18,6 +20,7 @@ export default function MovieModal({
   const [details, setDetails] = useState(null);
   const [trailerKey, setTrailerKey] = useState("");
   const [localReview, setLocalReview] = useState(review);
+  const recordedSimilarRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -28,8 +31,14 @@ export default function MovieModal({
         if (!active) return;
 
         setDetails(data);
-        setTrailerKey(pickTrailer(data?.videos?.results || [])?.key || "");
+        const trailer = pickTrailer(data?.videos?.results || []);
+        const key = trailer?.key || "";
+        setTrailerKey(key);
         setLocalReview(review || "");
+
+        if (key && auth.currentUser) {
+          recordMovieInteraction(auth.currentUser, movie, "trailer_play", "movie_modal");
+        }
       } catch (error) {
         console.error(error);
         if (active) setDetails(movie);
@@ -51,6 +60,19 @@ export default function MovieModal({
       .filter((item, index, list) => item?.poster_path && list.findIndex((next) => next.id === item.id) === index)
       .slice(0, 12);
   }, [current]);
+
+  useEffect(() => {
+    if (!auth.currentUser || similar.length === 0 || recordedSimilarRef.current) return;
+    recordedSimilarRef.current = true;
+
+    recordRecommendationSession(auth.currentUser, {
+      recommendationType: "similar_movies",
+      inputMovieId: movie.id,
+      recommendedMovies: similar,
+      source: "movie_modal",
+      algorithmVersion: "1.0-tmdb-similarity",
+    });
+  }, [movie.id, similar]);
 
   if (!movie) return null;
 
@@ -98,7 +120,17 @@ export default function MovieModal({
 
               <div className="detail-actions">
                 {trailerKey && (
-                  <a className="primary-action" href={`https://www.youtube.com/watch?v=${trailerKey}`} target="_blank" rel="noreferrer">
+                  <a
+                    className="primary-action"
+                    href={`https://www.youtube.com/watch?v=${trailerKey}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => {
+                      if (auth.currentUser) {
+                        recordMovieInteraction(auth.currentUser, current, "trailer_play", "movie_modal");
+                      }
+                    }}
+                  >
                     <FaPlay />
                     Watch trailer
                   </a>

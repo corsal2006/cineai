@@ -7,14 +7,15 @@ export default function Navbar({onSearch}){
 
  const [q,setQ]=useState("");
 
- const logout=()=>{
-  signOut(auth);
+ const logout= async ()=>{
+  await signOut(auth);
+  localStorage.removeItem("cine_guest_session");
   window.location="/";
  };
 
  const handle=(e)=>{
   setQ(e.target.value);
-  onSearch(e.target.value);
+  onSearch?.(e.target.value);
  };
 
  return(

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaBookmark, FaChevronDown, FaFire, FaPlay, FaPlus, FaSearch, FaSignInAlt, FaSignOutAlt, FaUserCircle, FaUsers } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -40,6 +40,17 @@ import {
   trackMovieClick,
   trackSearch,
 } from "../utils/aiTaste";
+import {
+  addToWatchlist,
+  recordMovieInteraction,
+  recordRating,
+  recordRecommendationSession,
+  recordReview,
+  recordSearch,
+  removeFromWatchlist,
+  syncRatingsAndReviews,
+  syncWatchlistWithFirestore,
+} from "../services/activityService";
 
 const emptyRows = {
   trending: [],
@@ -91,6 +102,9 @@ export default function Home() {
   const [reviews, setReviews] = useState(() => getReviews());
   const [tasteVersion, setTasteVersion] = useState(0);
 
+  const recordedPersonalizedRef = useRef("");
+  const recordedPredictedRef = useRef(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       const params = new URLSearchParams(window.location.search);
@@ -114,6 +128,39 @@ export default function Home() {
 
     return unsubscribe;
   }, [navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let isMounted = true;
+    const syncUserData = async () => {
+      try {
+        const [remoteWatchlist, remoteFeedback] = await Promise.all([
+          syncWatchlistWithFirestore(user, getWatchlist()),
+          syncRatingsAndReviews(user),
+        ]);
+
+        if (isMounted) {
+          if (remoteWatchlist && remoteWatchlist.length) {
+            setWatchlist(remoteWatchlist);
+          }
+          if (remoteFeedback?.ratings && Object.keys(remoteFeedback.ratings).length) {
+            setRatings((prev) => ({ ...prev, ...remoteFeedback.ratings }));
+          }
+          if (remoteFeedback?.reviews && Object.keys(remoteFeedback.reviews).length) {
+            setReviews((prev) => ({ ...prev, ...remoteFeedback.reviews }));
+          }
+        }
+      } catch (err) {
+        console.warn("Firestore sync notice:", err.message);
+      }
+    };
+
+    syncUserData();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     const load = async () => {
@@ -179,17 +226,53 @@ export default function Home() {
     const timer = setTimeout(async () => {
       trackSearch(cleanQuery);
       setTasteVersion((value) => value + 1);
-      setSearchResults(await searchMovies(cleanQuery));
+      const results = await searchMovies(cleanQuery);
+      setSearchResults(results);
+      if (user) {
+        recordSearch(user, {
+          query: cleanQuery,
+          resultCount: results.length,
+          source: "home_nav",
+          searchType: "movie",
+        });
+      }
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, user]);
 
   const allMovies = useMemo(() => Object.values(rows).flat(), [rows]);
   const personalized = useMemo(() => {
     if (tasteVersion < 0) return [];
     return personalizeMovies(allMovies).slice(0, 20);
   }, [allMovies, tasteVersion]);
+
+  useEffect(() => {
+    if (!user || personalized.length === 0) return;
+    const signature = personalized.map((m) => m.id).slice(0, 5).join(",");
+    if (recordedPersonalizedRef.current === signature) return;
+    recordedPersonalizedRef.current = signature;
+
+    recordRecommendationSession(user, {
+      recommendationType: "taste_personalized",
+      recommendedMovies: personalized,
+      source: "home_taste_engine",
+      algorithmVersion: "1.0-taste-collaborative-v1",
+    });
+  }, [user, personalized]);
+
+  useEffect(() => {
+    if (!user || rows.predicted.length === 0 || recordedPredictedRef.current) return;
+    recordedPredictedRef.current = true;
+
+    recordRecommendationSession(user, {
+      recommendationType: "trending_prediction",
+      recommendedMovies: rows.predicted,
+      source: "home_prediction",
+      algorithmVersion: "1.0-momentum-v1",
+    });
+  }, [user, rows.predicted]);
+
   const heroMovie = rows.trending[heroIndex] || rows.popular[0] || personalized[0];
   const displayName = user?.displayName || user?.email?.split("@")[0] || localStorage.getItem("cine_user") || "Guest";
   const favGenreIds = getFavGenreIds();
@@ -197,22 +280,40 @@ export default function Home() {
   const heatmap = favGenreIds.map((id) => ({ id, label: GENRES[id], count: taste.genres[id] || 0 }));
   const watchlistMatches = personalizeMovies(watchlist).slice(0, 18);
 
-  const openMovie = (movie) => {
+  const openMovie = (movie, source = "home") => {
     trackMovieClick(movie);
     setTasteVersion((value) => value + 1);
     setModal(movie);
+    if (user) {
+      recordMovieInteraction(user, movie, "details_open", source);
+    }
   };
 
   const updateWatchlist = (movie) => {
-    setWatchlist(toggleWatchlist(movie));
+    const next = toggleWatchlist(movie);
+    setWatchlist(next);
+    const isInNow = next.some((item) => item.id === movie.id);
+    if (user) {
+      if (isInNow) {
+        addToWatchlist(user, movie);
+      } else {
+        removeFromWatchlist(user, movie.id, movie);
+      }
+    }
   };
 
   const updateRating = (movieId, value) => {
     setRatings(saveRating(movieId, value));
+    if (user) {
+      recordRating(user, movieId, value, modal);
+    }
   };
 
   const updateReview = (movieId, value) => {
     setReviews(saveReview(movieId, value));
+    if (user) {
+      recordReview(user, movieId, value, modal);
+    }
   };
 
   const selectMood = async (moodId) => {
@@ -223,7 +324,18 @@ export default function Home() {
 
     try {
       const movies = await getMoodMovies(moodId);
-      setMoodMovies(personalizeMovies(movies));
+      const personalizedList = personalizeMovies(movies);
+      setMoodMovies(personalizedList);
+      if (user && personalizedList.length > 0) {
+        const moodObj = MOODS.find((m) => m.id === moodId);
+        recordRecommendationSession(user, {
+          recommendationType: "mood_picks",
+          inputGenres: moodObj ? [moodObj.label] : [moodId],
+          recommendedMovies: personalizedList,
+          source: "home_mood_engine",
+          algorithmVersion: "1.0-tmdb-discovery",
+        });
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -348,7 +460,7 @@ export default function Home() {
               <span>{heroMovie.vote_average?.toFixed(1) || "New"}</span>
             </div>
             <div className="hero-buttons">
-              <button type="button" className="primary-action" onClick={() => openMovie(heroMovie)}>
+              <button type="button" className="primary-action" onClick={() => openMovie(heroMovie, "hero")}>
                 <FaPlay />
                 Trailer and details
               </button>
@@ -383,7 +495,7 @@ export default function Home() {
             title="Smart search results"
             subtitle={`Matched for "${query.trim()}"`}
             movies={searchResults}
-            onClick={openMovie}
+            onClick={(movie) => openMovie(movie, "search_results")}
             onQuickAdd={updateWatchlist}
             variant="wide"
           />
@@ -415,7 +527,7 @@ export default function Home() {
         <MovieRow
           title={`${MOODS.find((mood) => mood.id === selectedMood)?.label || "Mood"} picks`}
           movies={moodMovies}
-          onClick={openMovie}
+          onClick={(movie) => openMovie(movie, "mood_picks")}
           onQuickAdd={updateWatchlist}
           variant="wide"
         />
@@ -454,7 +566,7 @@ export default function Home() {
           title="Because of your taste"
           subtitle="Collaborative-style scoring blended with genre and rating similarity"
           movies={personalized}
-          onClick={openMovie}
+          onClick={(movie) => openMovie(movie, "taste_picks")}
           onQuickAdd={updateWatchlist}
           variant="poster"
         />
@@ -463,30 +575,30 @@ export default function Home() {
           <MovieRow
             title="Your watchlist"
             movies={watchlistMatches}
-            onClick={openMovie}
+            onClick={(movie) => openMovie(movie, "watchlist")}
             onQuickAdd={updateWatchlist}
             variant="poster"
           />
         )}
 
-        <MovieRow title="Trending prediction" movies={rows.predicted} onClick={openMovie} onQuickAdd={updateWatchlist} variant="wide" />
-        <MovieRow title="Trending now" movies={rows.trending} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
-        <MovieRow title="Top rated" movies={rows.topRated} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
-        <MovieRow title="Action" movies={rows.action} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
-        <MovieRow title="Horror" movies={rows.horror} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
-        <MovieRow title="Sci-Fi" movies={rows.scifi} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
-        <MovieRow title="Comedy" movies={rows.comedy} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
-        <MovieRow title="Bollywood" movies={rows.bollywood} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
-        <MovieRow title="Anime movies" movies={rows.anime} onClick={openMovie} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Trending prediction" movies={rows.predicted} onClick={(movie) => openMovie(movie, "predicted")} onQuickAdd={updateWatchlist} variant="wide" />
+        <MovieRow title="Trending now" movies={rows.trending} onClick={(movie) => openMovie(movie, "trending")} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Top rated" movies={rows.topRated} onClick={(movie) => openMovie(movie, "top_rated")} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Action" movies={rows.action} onClick={(movie) => openMovie(movie, "action")} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Horror" movies={rows.horror} onClick={(movie) => openMovie(movie, "horror")} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Sci-Fi" movies={rows.scifi} onClick={(movie) => openMovie(movie, "scifi")} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Comedy" movies={rows.comedy} onClick={(movie) => openMovie(movie, "comedy")} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Bollywood" movies={rows.bollywood} onClick={(movie) => openMovie(movie, "bollywood")} onQuickAdd={updateWatchlist} variant="poster" />
+        <MovieRow title="Anime movies" movies={rows.anime} onClick={(movie) => openMovie(movie, "anime")} onQuickAdd={updateWatchlist} variant="poster" />
       </div>
 
-      <AiPopup />
+      <AiPopup user={user} />
 
       {modal && (
         <MovieModal
           movie={modal}
           close={() => setModal(null)}
-          onOpenMovie={openMovie}
+          onOpenMovie={(item) => openMovie(item, "modal_similar")}
           onToggleWatchlist={updateWatchlist}
           inWatchlist={watchlist.some((movie) => movie.id === modal.id)}
           rating={ratings[modal.id] || 0}

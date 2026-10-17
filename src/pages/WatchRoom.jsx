@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaCopy, FaPaperPlane, FaPlay, FaSearch, FaUsers } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "../styles/watch.css";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import { onDisconnect, onValue, push, ref, remove, serverTimestamp, set } from "firebase/database";
 import { getMovieDetails, getMovieVideos, imageUrl, pickTrailer, searchMovies } from "../api/tmdb";
+import { recordMovieInteraction, recordSearch } from "../services/activityService";
 
 const getClientId = () => {
   const existing = localStorage.getItem("cine_client_id");
@@ -34,6 +35,10 @@ export default function WatchRoom() {
   const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
+    if (auth.currentUser) {
+      recordMovieInteraction(auth.currentUser, { id: 0, title: `Room ${roomId}` }, "watch_room_joined", "watch_room");
+    }
+
     const userRef = ref(db, `rooms/${roomId}/users/${clientId}`);
 
     set(userRef, {
@@ -114,11 +119,25 @@ export default function WatchRoom() {
   const search = async () => {
     const cleanQuery = query.trim();
     if (!cleanQuery) return;
-    setResults(await searchMovies(cleanQuery));
+    const searchData = await searchMovies(cleanQuery);
+    setResults(searchData);
+
+    if (auth.currentUser) {
+      recordSearch(auth.currentUser, {
+        query: cleanQuery,
+        resultCount: searchData.length,
+        source: "watch_room",
+        searchType: "movie",
+      });
+    }
   };
 
   const playMovie = async (movie) => {
     setStatus("Loading trailer...");
+
+    if (auth.currentUser) {
+      recordMovieInteraction(auth.currentUser, movie, "room_trailer_play", "watch_room");
+    }
 
     try {
       const videos = await getMovieVideos(movie.id);

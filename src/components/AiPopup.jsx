@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaBolt, FaMoon, FaPaperPlane, FaRobot, FaSmile, FaTimes } from "react-icons/fa";
 import { askGroq } from "../api/groq";
+import { auth } from "../firebase";
+import { recordRecommendationSession } from "../services/activityService";
 
 const suggestions = [
   "Late-night thriller with a smart plot",
@@ -14,7 +16,7 @@ const quickPicks = [
   { label: "After dark", icon: FaMoon, prompt: "Recommend intense late-night thrillers with strong pacing." },
 ];
 
-export default function AiPopup() {
+export default function AiPopup({ user }) {
   const messagesRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -42,6 +44,17 @@ export default function AiPopup() {
     const response = await askGroq(text);
     setChat([...next, { ai: response }]);
     setLoading(false);
+
+    const activeUser = user || auth.currentUser;
+    if (activeUser) {
+      recordRecommendationSession(activeUser, {
+        recommendationType: "ai_chat_assistant",
+        inputQuery: text,
+        recommendedMovies: [],
+        source: "ai_popup",
+        algorithmVersion: "1.0-groq-llama-3.3",
+      });
+    }
   };
 
   return (

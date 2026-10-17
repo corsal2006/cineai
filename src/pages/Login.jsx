@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { FaBrain, FaChartLine, FaEnvelope, FaFilm, FaGoogle, FaLock, FaPlay, FaStar, FaTimes, FaUserPlus, FaUsers } from "react-icons/fa";
+import { FaBrain, FaChartLine, FaEnvelope, FaFilm, FaLock, FaPlay, FaStar, FaTimes, FaUserPlus, FaUsers } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { auth, provider } from "../firebase";
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
 } from "firebase/auth";
 import "../styles/login.css";
 import bg from "../assets/background.jpg";
+import googleLogo from "../assets/google.png";
+import { ensureUserProfile, recordLogin } from "../services/activityService";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -21,9 +25,27 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    // Check if returning from redirect sign-in
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          await recordLogin(result.user, "google.com");
+          localStorage.setItem("cine_user", result.user.displayName || result.user.email?.split("@")[0] || "Member");
+          localStorage.removeItem("cine_guest_session");
+          navigate("/home");
+        }
+      })
+      .catch((err) => {
+        if (err.code !== "auth/credential-already-in-use") {
+          console.warn("Redirect sign-in notice:", err.message);
+        }
+      });
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        await ensureUserProfile(user);
         localStorage.setItem("cine_user", user.displayName || user.email?.split("@")[0] || "Member");
+        localStorage.removeItem("cine_guest_session");
         navigate("/home");
       }
     });
@@ -48,7 +70,10 @@ export default function Login() {
           ? await createUserWithEmailAndPassword(auth, email, password)
           : await signInWithEmailAndPassword(auth, email, password);
 
-      finishLogin(credentials.user.displayName || credentials.user.email?.split("@")[0] || "Member");
+      if (credentials?.user) {
+        await recordLogin(credentials.user, "password");
+        finishLogin(credentials.user.displayName || credentials.user.email?.split("@")[0] || "Member");
+      }
     } catch (err) {
       setError(err.message.replace("Firebase: ", ""));
     } finally {
@@ -62,9 +87,24 @@ export default function Login() {
 
     try {
       const credentials = await signInWithPopup(auth, provider);
-      finishLogin(credentials.user.displayName || credentials.user.email?.split("@")[0] || "Member");
+      if (credentials?.user) {
+        await recordLogin(credentials.user, "google.com");
+        finishLogin(credentials.user.displayName || credentials.user.email?.split("@")[0] || "Member");
+      }
     } catch (err) {
-      setError(err.message.replace("Firebase: ", ""));
+      if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+        return;
+      }
+      if (err.code === "auth/popup-blocked") {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr) {
+          setError(redirectErr.message.replace("Firebase: ", ""));
+        }
+      } else {
+        setError(err.message.replace("Firebase: ", ""));
+      }
     } finally {
       setLoading(false);
     }
@@ -194,7 +234,7 @@ export default function Login() {
             <div className="auth-divider"><span>or</span></div>
 
             <button type="button" className="google-button" onClick={googleLogin} disabled={loading}>
-              <FaGoogle />
+              <img src={googleLogo} alt="Google" className="google-icon" />
               Continue with Google
             </button>
 
